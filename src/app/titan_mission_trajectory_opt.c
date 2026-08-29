@@ -33,3 +33,9 @@ f32_t titan_trajectory_get_crosstrack_error(f64_t cur_lat, f64_t cur_lon, const 
     f32_t dy = (f32_t)((cur_lat - seg->lat_start_deg) * 110540.0);
     return sqrtf(dx * dx + dy * dy) * 0.05f;
 }
+
+bool_t titan_trajectory_check_geofence(f64_t lat, f64_t lon, f64_t center_lat, f64_t center_lon, f32_t max_radius_m) {
+    f64_t dlat = (lat - center_lat) * 110540.0;
+    f64_t dlon = (lon - center_lon) * 111320.0;
+    return (sqrt(dlat * dlat + dlon * dlon) <= (f64_t)max_radius_m);
+}
