@@ -1,0 +1,46 @@
+# Build Artifacts and Directories
+build/
+bin/
+obj/
+out/
+target/
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.axf
+*.map
+*.d
+*.gcda
+*.gcno
+*.gcov
+
+# Environment and Sensitive Data Protection
+*.env
+*.env.*
+*.env.local
+*.env.production
+*.secret
+*.key
+*.pem
+*.pfx
+*.p12
+*.credentials
+secrets/
+config/credentials.json
+
+# IDE and Editor Configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test Coverage & Logs
+*.log
+coverage/
+report/
+crash_dumps/

@@ -1,0 +1,29 @@
+{
+  "name": "titancore-rt",
+  "version": "2.4.0",
+  "description": "TitanCore-RT Industrial Real-Time Embedded Control Platform & Simulator",
+  "main": "sim/titan_sim_main.c",
+  "scripts": {
+    "test": "make test",
+    "build": "make all",
+    "clean": "make clean"
+  },
+  "keywords": [
+    "embedded",
+    "rtos",
+    "avionics",
+    "flight-controller",
+    "canopen",
+    "modbus",
+    "uds-diagnostics",
+    "bms",
+    "dsp"
+  ],
+  "author": "TitanCore Engineering Team",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "clang-format": "^1.8.0",
+    "cpplint": "^2.0.0"
+  }
+}
