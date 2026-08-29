@@ -1,46 +1,35 @@
-# Build Artifacts and Directories
+# Build Artifacts
 build/
 bin/
 obj/
-out/
-target/
 *.o
 *.obj
 *.elf
-*.bin
 *.hex
-*.axf
+*.bin
 *.map
 *.d
-*.gcda
-*.gcno
-*.gcov
+*.pyc
+__pycache__/
+*.zip
 
-# Environment and Sensitive Data Protection
-*.env
-*.env.*
-*.env.local
-*.env.production
-*.secret
-*.key
-*.pem
-*.pfx
-*.p12
-*.credentials
-secrets/
-config/credentials.json
-
-# IDE and Editor Configurations
+# IDE & Editor Settings
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# Environment & Secrets (STRICTLY PROHIBITED)
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.secret
+*.token
+credentials.json
+secrets/
+
+# OS Specific
 .DS_Store
 Thumbs.db
-
-# Test Coverage & Logs
-*.log
-coverage/
-report/
-crash_dumps/
