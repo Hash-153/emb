@@ -42,3 +42,9 @@ bool_t titan_uds_is_unlocked(void)
 {
     return (s_sec_state == TITAN_UDS_SEC_UNLOCKED);
 }
+
+titan_status_t titan_uds_routine_ecu_reset(u8_t reset_type, u8_t *out_status) {
+    if (!out_status) return TITAN_ERROR_NULL_POINTER;
+    *out_status = (reset_type <= 0x05) ? 0x00 : 0x12; /* SubFunctionNotSupported */
+    return TITAN_OK;
+}
