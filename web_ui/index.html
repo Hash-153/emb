@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TitanCore-RT | Avionics & Ground Station Live Mission Control</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
+      50% { opacity: 0.6; filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.2)); }
+    }
+    .status-pulse { animation: pulse-glow 2s infinite; }
+    .mono-font { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 p-4 min-h-screen mono-font">
+  
+  <!-- Header Bar -->
+  <header class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 flex flex-wrap items-center justify-between shadow-xl">
+    <div class="flex items-center space-x-3">
+      <div class="w-4 h-4 rounded-full bg-emerald-500 status-pulse"></div>
+      <div>
+        <h1 class="text-xl font-bold tracking-wider text-emerald-400">TITANCORE-RT AVIONICS PLATFORM</h1>
+        <p class="text-xs text-slate-400">Flight Telemetry & Supervisory Control Interface | v2.4.0 (SIL-3 / ASIL-D)</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-6 text-xs">
+      <div class="text-right">
+        <div class="text-slate-400">SYSTEM STATE</div>
+        <div id="sys-state" class="text-emerald-400 font-semibold text-sm">ACTIVE_RUN (500Hz)</div>
+      </div>
+      <div class="text-right">
+        <div class="text-slate-400">UPTIME</div>
+        <div id="sys-uptime" class="text-sky-400 font-semibold text-sm">00:04:12</div>
+      </div>
+      <div class="text-right">
+        <div class="text-slate-400">BATTERY PACK</div>
+        <div id="sys-battery" class="text-amber-400 font-semibold text-sm">355.2V (98.4%)</div>
+      </div>
+      <button id="arm-btn" onclick="toggleArm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-lg transition-all shadow-md">
+        ARMED / SAFE
+      </button>
+    </div>
+  </header>
+
+  <!-- Grid Dashboard Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    
+    <!-- 1. Attitude & Primary Flight Display (PFD) -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold text-sky-400 tracking-wide">PRIMARY FLIGHT DISPLAY (PFD)</h2>
+        <span class="text-xs px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">MADGWICK AHRS</span>
+      </div>
+      
+      <!-- Artificial Horizon SVG -->
+      <div class="relative w-full h-56 bg-slate-950 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+        <svg id="horizon-svg" viewBox="0 0 200 200" class="w-full h-full">
+          <!-- Sky & Ground -->
+          <g id="horizon-disk" transform="rotate(0, 100, 100) translate(0, 0)">
+            <rect x="-100" y="-100" width="400" height="200" fill="#0284c7" />
+            <rect x="-100" y="100" width="400" height="200" fill="#78350f" />
+            <line x1="-100" y1="100" x2="300" y2="100" stroke="#ffffff" stroke-width="2" />
+            <!-- Pitch lines -->
+            <line x1="80" y1="70" x2="120" y2="70" stroke="#ffffff" stroke-width="1.5" />
+            <line x1="80" y1="40" x2="120" y2="40" stroke="#ffffff" stroke-width="1.5" />
+            <line x1="80" y1="130" x2="120" y2="130" stroke="#ffffff" stroke-width="1.5" />
+            <line x1="80" y1="160" x2="120" y2="160" stroke="#ffffff" stroke-width="1.5" />
+          </g>
+          <!-- Fixed Aircraft Crosshair -->
+          <line x1="50" y1="100" x2="85" y2="100" stroke="#facc15" stroke-width="3" />
+          <line x1="115" y1="100" x2="150" y2="100" stroke="#facc15" stroke-width="3" />
+          <circle cx="100" cy="100" r="4" fill="#facc15" />
+          <path d="M 85 100 L 95 110 L 100 100 L 105 110 L 115 100" fill="none" stroke="#facc15" stroke-width="3" />
+        </svg>
+        <div class="absolute bottom-2 left-2 text-xs bg-slate-900/80 px-2 py-1 rounded border border-slate-700">
+          ALT: <span id="val-alt" class="text-emerald-400 font-bold">128.4</span> m
+        </div>
+        <div class="absolute bottom-2 right-2 text-xs bg-slate-900/80 px-2 py-1 rounded border border-slate-700">
+          AIRSPEED: <span id="val-spd" class="text-sky-400 font-bold">24.2</span> m/s
+        </div>
+      </div>
+
+      <!-- Live Euler Angles readout -->
+      <div class="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+          <div class="text-slate-400">ROLL</div>
+          <div id="val-roll" class="text-emerald-400 font-bold text-sm">+2.4°</div>
+        </div>
+        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+          <div class="text-slate-400">PITCH</div>
+          <div id="val-pitch" class="text-sky-400 font-bold text-sm">-1.1°</div>
+        </div>
+        <div class="bg-slate-950 p-2 rounded border border-slate-800">
+          <div class="text-slate-400">YAW</div>
+          <div id="val-yaw" class="text-amber-400 font-bold text-sm">184.2°</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. RTOS Microkernel Thread Monitor & CPU Load -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold text-emerald-400 tracking-wide">RTOS THREAD & SCHEDULER MONITOR</h2>
+        <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">PREEMPTIVE O(1)</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="text-slate-400 border-b border-slate-800">
+              <th class="pb-2">TASK</th>
+              <th class="pb-2">PRIO</th>
+              <th class="pb-2">STATE</th>
+              <th class="pb-2">STACK</th>
+              <th class="pb-2 text-right">CPU %</th>
+            </tr>
+          </thead>
+          <tbody id="task-table-body" class="divide-y divide-slate-800/50">
+            <tr>
+              <td class="py-1.5 font-bold text-emerald-400">ctrl_500hz</td>
+              <td class="py-1.5">31</td>
+              <td class="py-1.5 text-emerald-400">RUNNING</td>
+              <td class="py-1.5">420/2048</td>
+              <td class="py-1.5 text-right font-bold text-emerald-400">18.4%</td>
+            </tr>
+            <tr>
+              <td class="py-1.5 font-bold text-sky-400">nav_ekf_100hz</td>
+              <td class="py-1.5">25</td>
+              <td class="py-1.5 text-sky-400">READY</td>
+              <td class="py-1.5">680/4096</td>
+              <td class="py-1.5 text-right font-bold text-sky-400">12.1%</td>
+            </tr>
+            <tr>
+              <td class="py-1.5 font-bold text-amber-400">telemetry_tx</td>
+              <td class="py-1.5">18</td>
+              <td class="py-1.5 text-amber-400">BLOCKED</td>
+              <td class="py-1.5">310/1024</td>
+              <td class="py-1.5 text-right font-bold text-amber-400">4.2%</td>
+            </tr>
+            <tr>
+              <td class="py-1.5 font-bold text-indigo-400">bms_guard</td>
+              <td class="py-1.5">15</td>
+              <td class="py-1.5 text-indigo-400">READY</td>
+              <td class="py-1.5">290/1024</td>
+              <td class="py-1.5 text-right font-bold text-indigo-400">3.8%</td>
+            </tr>
+            <tr>
+              <td class="py-1.5 font-bold text-purple-400">canopen_mgr</td>
+              <td class="py-1.5">12</td>
+              <td class="py-1.5 text-purple-400">READY</td>
+              <td class="py-1.5">450/2048</td>
+              <td class="py-1.5 text-right font-bold text-purple-400">5.6%</td>
+            </tr>
+            <tr>
+              <td class="py-1.5 font-bold text-slate-400">idle_task</td>
+              <td class="py-1.5">0</td>
+              <td class="py-1.5 text-slate-400">READY</td>
+              <td class="py-1.5">90/256</td>
+              <td class="py-1.5 text-right font-bold text-slate-400">55.9%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-3 bg-slate-950 p-2 rounded border border-slate-800">
+        <div class="flex justify-between text-xs mb-1">
+          <span class="text-slate-400">TOTAL CPU LOAD</span>
+          <span id="cpu-load-text" class="text-emerald-400 font-bold">44.1%</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div id="cpu-load-bar" class="bg-gradient-to-r from-emerald-500 to-sky-500 h-full w-[44.1%] transition-all duration-300"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. High-Voltage BMS 96-Cell Heatmap & Actuator Array -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold text-amber-400 tracking-wide">96-CELL HV-BMS & ACTUATOR MATRIX</h2>
+        <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">ACTIVE BALANCING</span>
+      </div>
+
+      <!-- Cell Grid -->
+      <div class="text-xs text-slate-400 mb-1 flex justify-between">
+        <span>CELL VOLTAGES (96s Li-ion)</span>
+        <span>DELTA: <b class="text-emerald-400">0.012V</b></span>
+      </div>
+      <div id="bms-cell-grid" class="grid grid-cols-12 gap-1 bg-slate-950 p-2 rounded border border-slate-800">
+      </div>
+
+      <!-- Actuator Outputs -->
+      <div class="mt-3">
+        <div class="text-xs text-slate-400 mb-1">QUAD-X MOTOR PWM & SERVO DEFLECTION</div>
+        <div class="grid grid-cols-4 gap-2 text-xs text-center">
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-slate-400">M1 (CW)</div>
+            <div id="m1-pwm" class="text-emerald-400 font-bold text-sm">68.2%</div>
+          </div>
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-slate-400">M2 (CCW)</div>
+            <div id="m2-pwm" class="text-emerald-400 font-bold text-sm">67.8%</div>
+          </div>
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-slate-400">M3 (CW)</div>
+            <div id="m3-pwm" class="text-emerald-400 font-bold text-sm">68.5%</div>
+          </div>
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-slate-400">M4 (CCW)</div>
+            <div id="m4-pwm" class="text-emerald-400 font-bold text-sm">68.0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Console & Interactive Terminal -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    
+    <!-- VT100 Serial Interactive Terminal -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold text-emerald-400 tracking-wide">VT100 SERIAL SHELL (UART1 @ 921,600 BAUD)</h2>
+        <span class="text-xs text-slate-400">Type 'help', 'ps', 'bms', 'bist'</span>
+      </div>
+      <div id="terminal-screen" class="bg-slate-950 text-emerald-400 p-3 rounded-lg h-44 overflow-y-auto border border-slate-800 text-xs font-mono mb-2">
+        <div>[BOOT] TitanCore-RT Microkernel Initialized (Cortex-M4 Target)</div>
+        <div>[POST] RAM March C- Test: PASS (384 KB verified)</div>
+        <div>[POST] Flash CRC32 Verification: PASS (0x8F3A21C0)</div>
+        <div>[SYS] Scheduler active. Entering ACTIVE_RUN state.</div>
+        <div class="text-slate-400">titan> _</div>
+      </div>
+      <div class="flex space-x-2">
+        <input id="term-input" type="text" placeholder="Enter CLI command (e.g. ps, bist, bms, status)..." 
+               onkeydown="if(event.key==='Enter') executeCommand()"
+               class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-emerald-400 focus:outline-none focus:border-emerald-500" />
+        <button onclick="executeCommand()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-lg text-xs border border-slate-700">
+          EXEC
+        </button>
+      </div>
+    </div>
+
+    <!-- Protocol Traffic & Diagnostic Stream -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold text-purple-400 tracking-wide">CANopen & ISO 14229 UDS BUS MONITOR</h2>
+        <div class="flex space-x-2">
+          <button onclick="injectDTC()" class="px-2 py-1 bg-purple-900/50 hover:bg-purple-800 text-purple-300 border border-purple-700 rounded text-xs">
+            + Inject DTC
+          </button>
+          <button onclick="clearLogs()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs">
+            Clear
+          </button>
+        </div>
+      </div>
+      <div id="bus-log" class="bg-slate-950 text-slate-300 p-3 rounded-lg h-44 overflow-y-auto border border-slate-800 text-xs font-mono">
+        <div class="text-sky-400">[CAN1] ID:0x581 SDO_TX: 43 00 10 00 00 00 00 00 (Device Type: Servo)</div>
+        <div class="text-emerald-400">[CAN1] ID:0x181 TPDO1: 00 00 04 20 00 12 00 00 (Sync Position)</div>
+        <div class="text-purple-400">[UDS] SID:0x22 DID:0xF190 Resp: 62 F1 90 54 49 54 41 4E (VIN/ECU ID)</div>
+        <div class="text-sky-400">[CAN1] ID:0x701 NMT_HEARTBEAT: State: 0x05 (OPERATIONAL)</div>
+      </div>
+      <div class="mt-2 text-right text-xs text-slate-500">
+        CAN Bus Load: <span id="bus-load" class="text-purple-400 font-bold">14.2%</span> | Error Counter: <span class="text-emerald-400 font-bold">0</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const cellGrid = document.getElementById('bms-cell-grid');
+    for (let i = 0; i < 96; i++) {
+      const cell = document.createElement('div');
+      cell.id = `cell-${i}`;
+      cell.className = 'h-3 bg-emerald-500/80 rounded-sm';
+      cell.title = `Cell ${i+1}: 3.70V`;
+      cellGrid.appendChild(cell);
+    }
+
+    let isArmed = true;
+    let seconds = 252;
+    let roll = 2.4;
+    let pitch = -1.1;
+    let yaw = 184.2;
+
+    function toggleArm() {
+      isArmed = !isArmed;
+      const btn = document.getElementById('arm-btn');
+      const state = document.getElementById('sys-state');
+      if (isArmed) {
+        btn.innerText = 'ARMED / SAFE';
+        btn.className = 'px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-lg transition-all shadow-md';
+        state.innerText = 'ACTIVE_RUN (500Hz)';
+        state.className = 'text-emerald-400 font-semibold text-sm';
+      } else {
+        btn.innerText = 'DISARMED (STANDBY)';
+        btn.className = 'px-4 py-2 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold rounded-lg transition-all shadow-md';
+        state.innerText = 'STANDBY_HOLD';
+        state.className = 'text-amber-400 font-semibold text-sm';
+      }
+    }
+
+    function updateSimulation() {
+      seconds++;
+      const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(seconds % 60).padStart(2, '0');
+      document.getElementById('sys-uptime').innerText = `${hrs}:${mins}:${secs}`;
+
+      if (isArmed) {
+        roll += (Math.random() - 0.5) * 0.8;
+        pitch += (Math.random() - 0.5) * 0.6;
+        yaw = (yaw + 0.1) % 360;
+
+        document.getElementById('val-roll').innerText = (roll >= 0 ? '+' : '') + roll.toFixed(1) + '°';
+        document.getElementById('val-pitch').innerText = (pitch >= 0 ? '+' : '') + pitch.toFixed(1) + '°';
+        document.getElementById('val-yaw').innerText = yaw.toFixed(1) + '°';
+
+        const horizon = document.getElementById('horizon-disk');
+        if (horizon) {
+          horizon.setAttribute('transform', `rotate(${-roll}, 100, 100) translate(0, ${pitch * 2})`);
+        }
+
+        const basePWM = 68.0;
+        document.getElementById('m1-pwm').innerText = (basePWM - roll * 0.2 + pitch * 0.2).toFixed(1) + '%';
+        document.getElementById('m2-pwm').innerText = (basePWM - roll * 0.2 - pitch * 0.2).toFixed(1) + '%';
+        document.getElementById('m3-pwm').innerText = (basePWM + roll * 0.2 - pitch * 0.2).toFixed(1) + '%';
+        document.getElementById('m4-pwm').innerText = (basePWM + roll * 0.2 + pitch * 0.2).toFixed(1) + '%';
+      }
+
+      if (Math.random() > 0.6) {
+        const busLog = document.getElementById('bus-log');
+        const frameTypes = [
+          '<div class="text-emerald-400">[CAN1] ID:0x181 TPDO1: 00 00 ' + Math.floor(Math.random()*90) + ' 20 00 12 00 00 (Sync Position)</div>',
+          '<div class="text-sky-400">[CAN1] ID:0x701 NMT_HEARTBEAT: State: 0x05 (OPERATIONAL)</div>',
+          '<div class="text-purple-400">[UDS] SID:0x22 DID:0x0100 Resp: 62 01 00 ' + Math.floor(Math.random()*255).toString(16) + ' (Motor Temp: 42°C)</div>'
+        ];
+        busLog.innerHTML += frameTypes[Math.floor(Math.random() * frameTypes.length)];
+        busLog.scrollTop = busLog.scrollHeight;
+      }
+    }
+
+    setInterval(updateSimulation, 800);
+
+    function executeCommand() {
+      const input = document.getElementById('term-input');
+      const term = document.getElementById('terminal-screen');
+      const cmd = input.value.trim().toLowerCase();
+      if (!cmd) return;
+
+      term.innerHTML += `<div class="text-slate-100 font-bold">> ${cmd}</div>`;
+      
+      switch(cmd) {
+        case 'help':
+          term.innerHTML += `<div class="text-slate-300">Available commands: ps, bms, bist, status, nav, reboot, clear</div>`;
+          break;
+        case 'ps':
+          term.innerHTML += `<div class="text-slate-300">PID  PRIO  STATE    STACK      TASK<br>0    0     READY    90/256     idle_task<br>1    31    RUNNING  420/2048   ctrl_500hz<br>2    25    READY    680/4096   nav_ekf_100hz<br>3    18    BLOCKED  310/1024   telemetry_tx</div>`;
+          break;
+        case 'bms':
+          term.innerHTML += `<div class="text-slate-300">HV-BMS: 96 Cells | Pack: 355.2V | Max: 3.71V | Min: 3.70V | Delta: 0.01V | SoC: 98.4% | Balancing: ON</div>`;
+          break;
+        case 'bist':
+          term.innerHTML += `<div class="text-emerald-400">[BIST] Memory March C-: PASS<br>[BIST] Flash ECC Integrity: PASS<br>[BIST] CPU ALU/Flags: PASS<br>[BIST] 2oo3 Voter Redundancy: PASS (All channels agree)</div>`;
+          break;
+        case 'status':
+          term.innerHTML += `<div class="text-slate-300">State: ACTIVE_RUN | Armed: TRUE | Control Freq: 500Hz | Faults: 0</div>`;
+          break;
+        case 'nav':
+          term.innerHTML += `<div class="text-slate-300">GPS: 3D Fix (12 Sats) | HDOP: 0.8 | Lat: 37.7749N | Lon: 122.4194W | Alt: 128.4m MSL</div>`;
+          break;
+        case 'clear':
+          term.innerHTML = '';
+          break;
+        default:
+          term.innerHTML += `<div class="text-rose-400">Unknown command '${cmd}'. Type 'help' for commands.</div>`;
+          break;
+      }
+
+      term.scrollTop = term.scrollHeight;
+      input.value = '';
+    }
+
+    function injectDTC() {
+      const busLog = document.getElementById('bus-log');
+      busLog.innerHTML += `<div class="text-rose-400 font-bold">[FAULT/DTC] ISO 14229 P0104 - Transducer Rail Current Transient (Handled by 2oo3 Voter)</div>`;
+      busLog.scrollTop = busLog.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('bus-log').innerHTML = '';
+    }
+  </script>
+</body>
+</html>
