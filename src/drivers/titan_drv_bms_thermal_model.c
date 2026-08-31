@@ -34,3 +34,13 @@ bool_t titan_bms_is_thermal_safe(const titan_bms_thermal_monitor_t *mon)
     if (!mon) return FALSE;
     return (!mon->thermal_alarm && !mon->isolation_fault);
 }
+
+titan_status_t titan_bms_broadcast_canfd(const titan_bms_thermal_monitor_t *mon, u8_t *can_frame, mem_size_t *frame_len) {
+    if (!mon || !can_frame || !frame_len) return TITAN_ERROR_NULL_POINTER;
+    can_frame[0] = (u8_t)(mon->cell_max_temp_c * 2.0f);
+    can_frame[1] = (u8_t)(mon->coolant_inlet_temp_c * 2.0f);
+    can_frame[2] = (u8_t)(mon->thermal_alarm ? 0xFF : 0x00);
+    can_frame[3] = (u8_t)(mon->isolation_fault ? 0xFF : 0x00);
+    *frame_len = 4;
+    return TITAN_OK;
+}
